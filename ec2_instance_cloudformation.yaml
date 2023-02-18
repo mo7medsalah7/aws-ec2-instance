@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates a VPC with public and private subnets 
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: 192.168.50.0/24
+      Tags:
+        - Key: "VPC-name"
+          Value: "MoSalah-VPC"
+  PublicSubnetA: 
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-east-2a" 
+      CidrBlock: 192.168.50.0/28
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+  PrivateSubnetB: 
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-east-2b"
+      CidrBlock: 192.168.50.32/28
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VPC
+
+## allow traffic through internet using AWS component:- Internet Gatewat(IGW)
+  MoInternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref MoInternetGateway
+
+
+## Internal Traffic
+  RoutingTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGateway
+    Properties:
+      RouteTableId: !Ref RoutingTable
+      GatewayId: !Ref MoInternetGateway
+      DestinationCidrBlock: 0.0.0.0/0
+
+
+
+## Public Subnet and Route Table association
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RoutingTable
+      SubnetId: !Ref PublicSubnetA
+
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      imageId: ami-0cc87e5027adcdca8
+      AvailabilityZone: us-east-2b
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref MySecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: "MoSalah-Instance"
+
+   MySecurityGroup:
+     Type: AWS::EC2::SecurityGroup
+     Properties:
+         GroupDescription: Allow http to our hosts and SSH
+         VpcId: !Ref VPC
+         SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 8080
+            ToPort: 8080
+            CidrIp: 0.0.0.0/0
+          - IpProtocol: tcp
+            FromPort: 22
+            ToPort: 22
+            CidrIp: 0.0.0.0/0
